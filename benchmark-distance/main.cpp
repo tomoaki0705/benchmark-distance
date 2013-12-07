@@ -35,17 +35,6 @@ inline void print_vectors(unsigned size,const unsigned char* vecs)
 	}
 }
 
-//bit count by the D&C algorithm
-inline int popcount(unsigned int x)
-{
-	x=(x&0x55555555)+((x>> 1)&0x55555555);
-	x=(x&0x33333333)+((x>> 2)&0x33333333);
-	x=(x&0x0F0F0F0F)+((x>> 4)&0x0F0F0F0F);
-	x=(x&0x00FF00FF)+((x>> 8)&0x00FF00FF);
-	x=(x&0x0000FFFF)+((x>>16)&0x0000FFFF);
-	return x;
-}
-
 inline int dist_l2(unsigned char* p,unsigned char* q)
 {
 	int result=0;
@@ -98,27 +87,76 @@ inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 	return t.m128i_i32[0]+t.m128i_i32[2];
 }
 
-inline int dist_hamming(unsigned char* p,unsigned char* q)
+//bit count by the D&C algorithm
+inline int popcount32(unsigned int x)
 {
-	assert(D%sizeof(unsigned int)==0);
-	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
-	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
-
-	int result=0;
-	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
-		result+=popcount(pi[k]^qi[k]);
-	return result;
+	//x=(x&0x55555555)+((x>> 1)&0x55555555);
+	//x=(x&0x33333333)+((x>> 2)&0x33333333);
+	//x=(x&0x0F0F0F0F)+((x>> 4)&0x0F0F0F0F);
+	//x=(x&0x00FF00FF)+((x>> 8)&0x00FF00FF);
+	//x=(x&0x0000FFFF)+((x>>16)&0x0000FFFF);
+	x=((x&0xAAAAAAAA)>> 1)+(x&0x55555555);
+	x=((x&0xCCCCCCCC)>> 2)+(x&0x33333333);
+	x=((x&0xF0F0F0F0)>> 4)+(x&0x0F0F0F0F);
+	x=((x&0xFF00FF00)>> 8)+(x&0x00FF00FF);
+	x=((x&0xFFFF0000)>>16)+(x&0x0000FFFF);
+	return int(x);
 }
-inline int dist_hamming_sse(unsigned char* p,unsigned char* q)
+inline int popcount64(unsigned long long x)
+{
+	x=((x&0xAAAAAAAAAAAAAAAAULL)>> 1)+(x&0x5555555555555555ULL);
+	x=((x&0xCCCCCCCCCCCCCCCCULL)>> 2)+(x&0x3333333333333333ULL);
+	x=((x&0xF0F0F0F0F0F0F0F0ULL)>> 4)+(x&0x0F0F0F0F0F0F0F0FULL);
+	x=((x&0xFF00FF00FF00FF00ULL)>> 8)+(x&0x00FF00FF00FF00FFULL);
+	x=((x&0xFFFF0000FFFF0000ULL)>>16)+(x&0x0000FFFF0000FFFFULL);
+	x=((x&0xFFFFFFFF00000000ULL)>>32)+(x&0x00000000FFFFFFFFULL);
+	return int(x);
+}
+
+inline int dist_hamming32(unsigned char* p,unsigned char* q)
 {
 	assert(D%sizeof(unsigned int)==0);
 	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
 	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
 	
-	int result=0;
+	unsigned int result=0;
+	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
+		result+=popcount32(pi[k]^qi[k]);
+	return int(result);
+}
+inline int dist_hamming32_sse(unsigned char* p,unsigned char* q)
+{
+	assert(D%sizeof(unsigned int)==0);
+	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
+	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
+	
+	unsigned int result=0;
 	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
 		result+=_mm_popcnt_u32(pi[k]^qi[k]);
-	return result;
+	return int(result);
+}
+
+inline int dist_hamming64(unsigned char* p,unsigned char* q)
+{
+	assert(D%sizeof(unsigned long long)==0);
+	const unsigned long long* pi=reinterpret_cast<unsigned long long*>(p);
+	const unsigned long long* qi=reinterpret_cast<unsigned long long*>(q);
+
+	unsigned long long  result=0UL;
+	for(unsigned k=0;k<D/sizeof(unsigned long long);++k)
+		result+=popcount64(pi[k]^qi[k]);
+	return int(result);
+}
+inline int dist_hamming64_sse(unsigned char* p,unsigned char* q)
+{
+	assert(D%sizeof(unsigned long long)==0);
+	const unsigned long long* pi=reinterpret_cast<unsigned long long*>(p);
+	const unsigned long long* qi=reinterpret_cast<unsigned long long*>(q);
+	
+	unsigned long long  result=0UL;
+	for(unsigned k=0;k<D/sizeof(unsigned long long);++k)
+		result+=_mm_popcnt_u64(pi[k]^qi[k]);
+	return int(result);
 }
 
 inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
@@ -130,8 +168,10 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 //		int d=dist_l2    (&dict[n*D],query);
 //		int d=dist_l1    (&dict[n*D],query);
 //		int d=dist_l1_sse(&dict[n*D],query);
-//		int d=dist_hamming    (&dict[n*D],query);
-		int d=dist_hamming_sse(&dict[n*D],query);
+//		int d=dist_hamming32    (&dict[n*D],query);
+//		int d=dist_hamming32_sse(&dict[n*D],query);
+//		int d=dist_hamming64    (&dict[n*D],query);
+		int d=dist_hamming64_sse(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
