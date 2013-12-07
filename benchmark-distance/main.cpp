@@ -55,16 +55,20 @@ inline int dist_l2_sse(unsigned char* p,unsigned char* q)
 	{
 		__m128i pm=_mm_load_si128((__m128i*)(p+d));
 		__m128i qm=_mm_load_si128((__m128i*)(q+d));
-		__m128i plo=_mm_unpacklo_epi8(pm,_mm_setzero_si128());
-		__m128i qlo=_mm_unpacklo_epi8(qm,_mm_setzero_si128());
-		__m128i phi=_mm_unpackhi_epi8(pm,_mm_setzero_si128());
-		__m128i qhi=_mm_unpackhi_epi8(qm,_mm_setzero_si128());
-		__m128i sublo=_mm_sub_epi16(plo,qlo);
-		__m128i subhi=_mm_sub_epi16(phi,qhi);
-		__m128i dotlo=_mm_madd_epi16(sublo,sublo);
-		__m128i dothi=_mm_madd_epi16(subhi,subhi);
-		t=_mm_add_epi32(t,dotlo);
-		t=_mm_add_epi32(t,dothi);
+		__m128i sublo=_mm_sub_epi16(
+			_mm_unpacklo_epi8(pm,_mm_setzero_si128()),
+			_mm_unpacklo_epi8(qm,_mm_setzero_si128())
+		);
+		t=_mm_add_epi32(t,
+			_mm_madd_epi16(sublo,sublo)
+		);
+		__m128i subhi=_mm_sub_epi16(
+			_mm_unpackhi_epi8(pm,_mm_setzero_si128()),
+			_mm_unpackhi_epi8(qm,_mm_setzero_si128())
+		);
+		t=_mm_add_epi32(t,
+			_mm_madd_epi16(subhi,subhi)
+		);
 	}
 	return t.m128i_i32[0]+t.m128i_i32[1]+t.m128i_i32[2]+t.m128i_i32[3];
 }
@@ -168,9 +172,9 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	{
 		// uncomment one of them as you like!
 //		int d=dist_l2(&dict[n*D],query);
-//		int d=dist_l1(&dict[n*D],query);
+		int d=dist_l1(&dict[n*D],query);
 //		int d=dist_hamming32(&dict[n*D],query);
-		int d=dist_hamming64(&dict[n*D],query);
+//		int d=dist_hamming64(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
@@ -187,9 +191,9 @@ inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
 	{
 		// uncomment one of them as you like!
 //		int d=dist_l2_sse(&dict[n*D],query);
-//		int d=dist_l1_sse(&dict[n*D],query);
+		int d=dist_l1_sse(&dict[n*D],query);
 //		int d=dist_hamming32_sse(&dict[n*D],query);
-		int d=dist_hamming64_sse(&dict[n*D],query);
+//		int d=dist_hamming64_sse(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
