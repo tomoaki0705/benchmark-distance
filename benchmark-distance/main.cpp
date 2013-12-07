@@ -22,7 +22,7 @@ inline std::string to_binary(unsigned char b)
 	return str;
 }
 
-inline void print_vectors(int size,const unsigned char* vecs)
+inline void print_vectors(unsigned size,const unsigned char* vecs)
 {
 	for(unsigned i=0;i<size;++i)
 	{
@@ -46,6 +46,34 @@ inline int popcount(unsigned int x)
 	return x;
 }
 
+inline int dist_l2(unsigned char* p,unsigned char* q)
+{
+	int result=0;
+	for(unsigned d=0;d<D;++d)
+		result+=(q[d]-p[d])*(q[d]-p[d]);
+	return result;
+}
+inline int dist_l2_sse(unsigned char* p,unsigned char* q)
+{
+	throw std::domain_error("unimplemented function!");
+	//assert(D%16==0);
+
+	//__m128i t=_mm_setzero_si128();
+	//for(unsigned d=0;d<D;d+=16)
+	//{
+	//	__m128i in1=_mm_load_si128((__m128i*)(p+d));
+	//	__m128i in2=_mm_load_si128((__m128i*)(p+d));
+	//	__m128i diff=_mm_sad_epu8(in1,in2);
+
+	//	__m128i hi=_mm_unpackhi_epi8(diff,_mm_setzero_si128());
+	//	__m128i lo=_mm_unpacklo_epi8(diff,_mm_setzero_si128());
+	//	__m128i sq1=_mm_mulhi_epu16(hi,lo);
+	//	__m128i sq2=_mm_mullo_epi16(hi,lo);
+	//	t=_mm_add_epi16(sq1,sq2);
+	//}
+	//return t.m128i_i16[0]+t.m128i_i16[2];
+}
+
 inline int dist_l1(unsigned char* p,unsigned char* q)
 {
 	int result=0;
@@ -60,8 +88,8 @@ inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 	__m128i t=_mm_setzero_si128();
 	for(unsigned d=0;d<D;d+=16)
 	{
-		t=_mm_add_epi32(
-			t,_mm_sad_epu8(
+		t=_mm_add_epi32(t,
+			_mm_sad_epu8(
 				_mm_load_si128((__m128i*)(p+d)),
 				_mm_load_si128((__m128i*)(q+d))
 			)
@@ -70,33 +98,27 @@ inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 	return t.m128i_i32[0]+t.m128i_i32[2];
 }
 
-inline int dist_l2(unsigned char* p,unsigned char* q)
-{
-	int result=0;
-	for(unsigned d=0;d<D;++d)
-		result+=(q[d]-p[d])*(q[d]-p[d]);
-	return result;
-}
-inline int dist_l2_sse(unsigned char* p,unsigned char* q)
-{
-	throw std::domain_error("unimplemented function!");
-}
-
 inline int dist_hamming(unsigned char* p,unsigned char* q)
 {
-	assert(D%sizeof(int)==0);
-
-	const int* pi=reinterpret_cast<int*>(p);
-	const int* qi=reinterpret_cast<int*>(q);
+	assert(D%sizeof(unsigned int)==0);
+	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
+	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
 
 	int result=0;
-	for(unsigned k=0;k<D/sizeof(int);++k)
+	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
 		result+=popcount(pi[k]^qi[k]);
 	return result;
 }
 inline int dist_hamming_sse(unsigned char* p,unsigned char* q)
 {
-	throw std::domain_error("unimplemented function!");
+	assert(D%sizeof(unsigned int)==0);
+	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
+	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
+	
+	int result=0;
+	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
+		result+=_mm_popcnt_u32(pi[k]^qi[k]);
+	return result;
 }
 
 inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
@@ -105,10 +127,11 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	int best_d=std::numeric_limits<int>::max();
 	for(unsigned n=0;n<N;++n)
 	{
-//		int d=dist_l1    (&dict[n*D],query);
-		int d=dist_l1_sse(&dict[n*D],query);
 //		int d=dist_l2    (&dict[n*D],query);
-//		int d=dist_hamming(&dict[n*D],query);
+//		int d=dist_l1    (&dict[n*D],query);
+//		int d=dist_l1_sse(&dict[n*D],query);
+//		int d=dist_hamming    (&dict[n*D],query);
+		int d=dist_hamming_sse(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
