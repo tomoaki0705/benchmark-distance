@@ -9,14 +9,18 @@
 #include <random>
 #include <intrin.h>
 
-const int ALIGN=16;
-const unsigned D=16; // dimension of a vector with uchar elements
-const unsigned N=1; // # of dictionary vectors
+// Parameter D (dimension of a vector with uchar elements)
+// has to be set in multiples of 16 (such as 16,32,..,128).
+// This benchmark treats the length of a binary vector as 8D.
+
+const int ALIGN=16; // alignment step for SSE
+const unsigned D=128; // dimension of a vector with uchar elements
+const unsigned N=1024*1024*4; // # of dictionary vectors
 
 inline std::string to_binary(unsigned char b)
 {
 	std::string str("........");
-	for(int i=0;i<8;++i)
+	for(unsigned i=0;i<8;++i)
 		if(b&(1<<i))
 			str[8-1-i]='#';
 	return str;
@@ -44,23 +48,25 @@ inline int dist_l2(unsigned char* p,unsigned char* q)
 }
 inline int dist_l2_sse(unsigned char* p,unsigned char* q)
 {
-	throw std::domain_error("unimplemented function!");
-	//assert(D%16==0);
+	assert(D%16==0);
 
-	//__m128i t=_mm_setzero_si128();
-	//for(unsigned d=0;d<D;d+=16)
-	//{
-	//	__m128i in1=_mm_load_si128((__m128i*)(p+d));
-	//	__m128i in2=_mm_load_si128((__m128i*)(p+d));
-	//	__m128i diff=_mm_sad_epu8(in1,in2);
-
-	//	__m128i hi=_mm_unpackhi_epi8(diff,_mm_setzero_si128());
-	//	__m128i lo=_mm_unpacklo_epi8(diff,_mm_setzero_si128());
-	//	__m128i sq1=_mm_mulhi_epu16(hi,lo);
-	//	__m128i sq2=_mm_mullo_epi16(hi,lo);
-	//	t=_mm_add_epi16(sq1,sq2);
-	//}
-	//return t.m128i_i16[0]+t.m128i_i16[2];
+	__m128i t=_mm_setzero_si128();
+	for(unsigned d=0;d<D;d+=16)
+	{
+		__m128i pm=_mm_load_si128((__m128i*)(p+d));
+		__m128i qm=_mm_load_si128((__m128i*)(q+d));
+		__m128i plo=_mm_unpacklo_epi8(pm,_mm_setzero_si128());
+		__m128i qlo=_mm_unpacklo_epi8(qm,_mm_setzero_si128());
+		__m128i phi=_mm_unpackhi_epi8(pm,_mm_setzero_si128());
+		__m128i qhi=_mm_unpackhi_epi8(qm,_mm_setzero_si128());
+		__m128i sublo=_mm_sub_epi16(plo,qlo);
+		__m128i subhi=_mm_sub_epi16(phi,qhi);
+		__m128i dotlo=_mm_madd_epi16(sublo,sublo);
+		__m128i dothi=_mm_madd_epi16(subhi,subhi);
+		t=_mm_add_epi32(t,dotlo);
+		t=_mm_add_epi32(t,dothi);
+	}
+	return t.m128i_i32[0]+t.m128i_i32[1]+t.m128i_i32[2]+t.m128i_i32[3];
 }
 
 inline int dist_l1(unsigned char* p,unsigned char* q)
@@ -84,17 +90,12 @@ inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 			)
 		);
 	}
-	return t.m128i_i32[0]+t.m128i_i32[2];
+	return int(t.m128i_i64[0]+t.m128i_i64[1]);
 }
 
 //bit count by the D&C algorithm
 inline int popcount32(unsigned int x)
 {
-	//x=(x&0x55555555)+((x>> 1)&0x55555555);
-	//x=(x&0x33333333)+((x>> 2)&0x33333333);
-	//x=(x&0x0F0F0F0F)+((x>> 4)&0x0F0F0F0F);
-	//x=(x&0x00FF00FF)+((x>> 8)&0x00FF00FF);
-	//x=(x&0x0000FFFF)+((x>>16)&0x0000FFFF);
 	x=((x&0xAAAAAAAA)>> 1)+(x&0x55555555);
 	x=((x&0xCCCCCCCC)>> 2)+(x&0x33333333);
 	x=((x&0xF0F0F0F0)>> 4)+(x&0x0F0F0F0F);
@@ -165,12 +166,29 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	int best_d=std::numeric_limits<int>::max();
 	for(unsigned n=0;n<N;++n)
 	{
-//		int d=dist_l2    (&dict[n*D],query);
-//		int d=dist_l1    (&dict[n*D],query);
+		// uncomment one of them as you like!
+//		int d=dist_l2(&dict[n*D],query);
+//		int d=dist_l1(&dict[n*D],query);
+//		int d=dist_hamming32(&dict[n*D],query);
+		int d=dist_hamming64(&dict[n*D],query);
+		if(best_d<d)
+			continue;
+		best_n=n;
+		best_d=d;
+	}
+	return std::make_pair(best_d,best_n);
+}
+
+inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
+{
+	int best_n=-1;
+	int best_d=std::numeric_limits<int>::max();
+	for(unsigned n=0;n<N;++n)
+	{
+		// uncomment one of them as you like!
+//		int d=dist_l2_sse(&dict[n*D],query);
 //		int d=dist_l1_sse(&dict[n*D],query);
-//		int d=dist_hamming32    (&dict[n*D],query);
 //		int d=dist_hamming32_sse(&dict[n*D],query);
-//		int d=dist_hamming64    (&dict[n*D],query);
 		int d=dist_hamming64_sse(&dict[n*D],query);
 		if(best_d<d)
 			continue;
@@ -193,26 +211,40 @@ int main()
 	unsigned char* query=reinterpret_cast<unsigned char*>(_aligned_malloc(D,ALIGN));
 	
 	// generate dictionary and query vectors randomly
+	printf("[vector generation]\n");
 	for(unsigned n=0;n<N;++n)
+	{
+		if((n+1)%1024==0)
+			printf("  Progress... (%5dk / %5dk)\r",(n+1)/1024,N/1024);
 		for(unsigned d=0;d<D;++d)
 			dict[n*D+d]=dist(rng);
+	}
+	printf("\n");
 	for(unsigned d=0;d<D;++d)
 		query[d]=dist(rng);
 
-	// print vectors
-	printf("[dictionary vectors]\n");
-	print_vectors(N,dict);
-	printf("[query vectors]\n");
-	print_vectors(1,query);
+	//// print vectors
+	//printf("[dictionary vectors]\n");
+	//print_vectors(N,dict);
+	//printf("[query vectors]\n");
+	//print_vectors(1,query);
 
-	// (full) nearest neighbor search
-	clock_t tick0=clock();
-	std::pair<int,int> result=search(dict,query);
-	clock_t tick1=clock();
-	double time=double(tick1-tick0)/CLOCKS_PER_SEC;
-	printf("Nearest neighbor:  %d (distance=%d)\n",result.second,result.first);
-	printf("Search time:  %6.2f [s]\n",time);
+	printf("[full nearest neighbor search w/o SSE]\n");
+	clock_t tickA0=clock();
+	std::pair<int,int> resultA=search(dict,query);
+	clock_t tickA1=clock();
+	double timeA=double(tickA1-tickA0)*1000.0/CLOCKS_PER_SEC;
+	printf("  Nearest neighbor:  %d (distance=%d)\n",resultA.second,resultA.first);
+	printf("  Search time:  %6.0f [ms]\n",timeA);
 	
+	printf("[full nearest neighbor search w/ SSE]\n");
+	clock_t tickB0=clock();
+	std::pair<int,int> resultB=search_sse(dict,query);
+	clock_t tickB1=clock();
+	double timeB=double(tickB1-tickB0)*1000.0/CLOCKS_PER_SEC;
+	printf("  Nearest neighbor:  %d (distance=%d)\n",resultB.second,resultB.first);
+	printf("  Search time:  %6.0f [ms]\n",timeB);
+
 	_aligned_free(dict);
 	_aligned_free(query);
 	return 0;
