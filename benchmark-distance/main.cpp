@@ -10,7 +10,7 @@
 #include <intrin.h>
 
 const int ALIGN=16;
-const unsigned D=4; // dimension of a vector with uchar elements
+const unsigned D=16; // dimension of a vector with uchar elements
 const unsigned N=1; // # of dictionary vectors
 
 inline std::string to_binary(unsigned char b)
@@ -55,7 +55,19 @@ inline int dist_l1(unsigned char* p,unsigned char* q)
 }
 inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 {
-	throw std::domain_error("unimplemented function!");
+	assert(D%16==0);
+
+	__m128i t=_mm_setzero_si128();
+	for(unsigned d=0;d<D;d+=16)
+	{
+		t=_mm_add_epi32(
+			t,_mm_sad_epu8(
+				_mm_load_si128((__m128i*)(p+d)),
+				_mm_load_si128((__m128i*)(q+d))
+			)
+		);
+	}
+	return t.m128i_i32[0]+t.m128i_i32[2];
 }
 
 inline int dist_l2(unsigned char* p,unsigned char* q)
@@ -93,9 +105,10 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	int best_d=std::numeric_limits<int>::max();
 	for(unsigned n=0;n<N;++n)
 	{
-//		int d=dist_l1(&dict[n*D],query);
-//		int d=dist_l2(&dict[n*D],query);
-		int d=dist_hamming(&dict[n*D],query);
+//		int d=dist_l1    (&dict[n*D],query);
+		int d=dist_l1_sse(&dict[n*D],query);
+//		int d=dist_l2    (&dict[n*D],query);
+//		int d=dist_hamming(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
