@@ -10,7 +10,7 @@
 #include <intrin.h>
 
 // Parameter D (dimension of a vector with uchar elements)
-// has to be set in multiples of 16 (such as 16,32,..,128).
+// has to be set in multiples of ALIGN (i.e., 16).
 // This benchmark treats the length of a binary vector as 8D.
 
 const int ALIGN=16; // alignment step for SSE
@@ -48,10 +48,8 @@ inline int dist_l2(unsigned char* p,unsigned char* q)
 }
 inline int dist_l2_sse(unsigned char* p,unsigned char* q)
 {
-	assert(D%16==0);
-
 	__m128i t=_mm_setzero_si128();
-	for(unsigned d=0;d<D;d+=16)
+	for(unsigned d=0;d<D;d+=ALIGN)
 	{
 		__m128i pm=_mm_load_si128((__m128i*)(p+d));
 		__m128i qm=_mm_load_si128((__m128i*)(q+d));
@@ -82,10 +80,8 @@ inline int dist_l1(unsigned char* p,unsigned char* q)
 }
 inline int dist_l1_sse(unsigned char* p,unsigned char* q)
 {
-	assert(D%16==0);
-
 	__m128i t=_mm_setzero_si128();
-	for(unsigned d=0;d<D;d+=16)
+	for(unsigned d=0;d<D;d+=ALIGN)
 	{
 		t=_mm_add_epi32(t,
 			_mm_sad_epu8(
@@ -120,7 +116,6 @@ inline int popcount64(unsigned long long x)
 
 inline int dist_hamming32(unsigned char* p,unsigned char* q)
 {
-	assert(D%sizeof(unsigned int)==0);
 	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
 	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
 	
@@ -131,19 +126,23 @@ inline int dist_hamming32(unsigned char* p,unsigned char* q)
 }
 inline int dist_hamming32_sse(unsigned char* p,unsigned char* q)
 {
-	assert(D%sizeof(unsigned int)==0);
-	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
-	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
-	
-	unsigned int result=0;
-	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
-		result+=_mm_popcnt_u32(pi[k]^qi[k]);
+	unsigned long long result=0UL;
+	for(unsigned d=0;d<D;d+=ALIGN)
+	{
+		__m128i xor=_mm_xor_si128(
+			_mm_load_si128((__m128i*)(p+d)),
+			_mm_load_si128((__m128i*)(q+d))
+		);
+		result+=_mm_popcnt_u32(xor.m128i_u32[0]);
+		result+=_mm_popcnt_u32(xor.m128i_u32[1]);
+		result+=_mm_popcnt_u32(xor.m128i_u32[2]);
+		result+=_mm_popcnt_u32(xor.m128i_u32[3]);
+	}
 	return int(result);
 }
 
 inline int dist_hamming64(unsigned char* p,unsigned char* q)
 {
-	assert(D%sizeof(unsigned long long)==0);
 	const unsigned long long* pi=reinterpret_cast<unsigned long long*>(p);
 	const unsigned long long* qi=reinterpret_cast<unsigned long long*>(q);
 
@@ -154,13 +153,16 @@ inline int dist_hamming64(unsigned char* p,unsigned char* q)
 }
 inline int dist_hamming64_sse(unsigned char* p,unsigned char* q)
 {
-	assert(D%sizeof(unsigned long long)==0);
-	const unsigned long long* pi=reinterpret_cast<unsigned long long*>(p);
-	const unsigned long long* qi=reinterpret_cast<unsigned long long*>(q);
-	
 	unsigned long long  result=0UL;
-	for(unsigned k=0;k<D/sizeof(unsigned long long);++k)
-		result+=_mm_popcnt_u64(pi[k]^qi[k]);
+	for(unsigned d=0;d<D;d+=ALIGN)
+	{
+		__m128i xor=_mm_xor_si128(
+			_mm_load_si128((__m128i*)(p+d)),
+			_mm_load_si128((__m128i*)(q+d))
+		);
+		result+=_mm_popcnt_u64(xor.m128i_u64[0]);
+		result+=_mm_popcnt_u64(xor.m128i_u64[1]);
+	}
 	return int(result);
 }
 
@@ -172,9 +174,9 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	{
 		// uncomment one of them as you like!
 //		int d=dist_l2(&dict[n*D],query);
-		int d=dist_l1(&dict[n*D],query);
+//		int d=dist_l1(&dict[n*D],query);
 //		int d=dist_hamming32(&dict[n*D],query);
-//		int d=dist_hamming64(&dict[n*D],query);
+		int d=dist_hamming64(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
@@ -191,9 +193,9 @@ inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
 	{
 		// uncomment one of them as you like!
 //		int d=dist_l2_sse(&dict[n*D],query);
-		int d=dist_l1_sse(&dict[n*D],query);
+//		int d=dist_l1_sse(&dict[n*D],query);
 //		int d=dist_hamming32_sse(&dict[n*D],query);
-//		int d=dist_hamming64_sse(&dict[n*D],query);
+		int d=dist_hamming64_sse(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
@@ -204,6 +206,8 @@ inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
 
 int main()
 {
+	assert(D%ALIGN==0);
+
 	printf("Dimension of a vector (D): %d\n",D);
 	printf("# of dictionary vectors (N): %d\n",N);
 	printf("-----------------------------------------\n");

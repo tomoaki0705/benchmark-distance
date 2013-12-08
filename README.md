@@ -14,13 +14,13 @@ This code provides a benchmark for hardware-accelerated distance computation suc
 
 #### (D=128 and N=4M w/o SSE)
 * **L2 (Euclidean)**: 461ms
-* **L1 (Manhattan)**: 586ms
-* **Hamming 32bits**: 841ms
-* **Hamming 64bits**: 527ms
+* **L1 (Manhattan)**: 576ms
+* **Hamming 32bits**: 837ms
+* **Hamming 64bits**: 492ms
 
 #### (D=128 and N=4M w/ SSE)
-* **L2 (Euclidean)**: 129ms
-* **L1 (Manhattan)**:  91ms
-* **Hamming 32bits**: 189ms
-* **Hamming 64bits**: 128ms
+* **L2 (Euclidean)**: 127ms
+* **L1 (Manhattan)**:  90ms
+* **Hamming 32bits**: 181ms
+* **Hamming 64bits**: 115ms
 
