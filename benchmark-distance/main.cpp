@@ -116,52 +116,56 @@ inline int popcount64(unsigned long long x)
 
 inline int dist_hamming32(unsigned char* p,unsigned char* q)
 {
-	const unsigned int* pi=reinterpret_cast<unsigned int*>(p);
-	const unsigned int* qi=reinterpret_cast<unsigned int*>(q);
-	
-	unsigned int result=0;
-	for(unsigned k=0;k<D/sizeof(unsigned int);++k)
-		result+=popcount32(pi[k]^qi[k]);
+	int result=0;
+	unsigned int* p32=reinterpret_cast<unsigned int*>(p);
+	unsigned int* q32=reinterpret_cast<unsigned int*>(q);
+	for(unsigned d=0;d<D;d+=ALIGN)
+	{
+		result+=popcount32((*p32++)^(*q32++));
+		result+=popcount32((*p32++)^(*q32++));
+		result+=popcount32((*p32++)^(*q32++));
+		result+=popcount32((*p32++)^(*q32++));
+	}
 	return int(result);
 }
 inline int dist_hamming32_sse(unsigned char* p,unsigned char* q)
 {
-	unsigned long long result=0UL;
+	int result=0;
+	unsigned int* p32=reinterpret_cast<unsigned int*>(p);
+	unsigned int* q32=reinterpret_cast<unsigned int*>(q);
 	for(unsigned d=0;d<D;d+=ALIGN)
 	{
-		__m128i xor=_mm_xor_si128(
-			_mm_load_si128((__m128i*)(p+d)),
-			_mm_load_si128((__m128i*)(q+d))
-		);
-		result+=_mm_popcnt_u32(xor.m128i_u32[0]);
-		result+=_mm_popcnt_u32(xor.m128i_u32[1]);
-		result+=_mm_popcnt_u32(xor.m128i_u32[2]);
-		result+=_mm_popcnt_u32(xor.m128i_u32[3]);
+		// this might be faster than using _mm_xor_si128().
+		result+=_mm_popcnt_u32((*p32++)^(*q32++));
+		result+=_mm_popcnt_u32((*p32++)^(*q32++));
+		result+=_mm_popcnt_u32((*p32++)^(*q32++));
+		result+=_mm_popcnt_u32((*p32++)^(*q32++));
 	}
 	return int(result);
 }
 
 inline int dist_hamming64(unsigned char* p,unsigned char* q)
 {
-	const unsigned long long* pi=reinterpret_cast<unsigned long long*>(p);
-	const unsigned long long* qi=reinterpret_cast<unsigned long long*>(q);
-
-	unsigned long long  result=0UL;
-	for(unsigned k=0;k<D/sizeof(unsigned long long);++k)
-		result+=popcount64(pi[k]^qi[k]);
+	int result=0;
+	unsigned long long* p64=reinterpret_cast<unsigned long long*>(p);
+	unsigned long long* q64=reinterpret_cast<unsigned long long*>(q);
+	for(unsigned d=0;d<D;d+=ALIGN)
+	{
+		result+=popcount64((*p64++)^(*q64++));
+		result+=popcount64((*p64++)^(*q64++));
+	}
 	return int(result);
 }
 inline int dist_hamming64_sse(unsigned char* p,unsigned char* q)
 {
-	unsigned long long  result=0UL;
+	long long result=0;
+	unsigned long long* p64=reinterpret_cast<unsigned long long*>(p);
+	unsigned long long* q64=reinterpret_cast<unsigned long long*>(q);
 	for(unsigned d=0;d<D;d+=ALIGN)
 	{
-		__m128i xor=_mm_xor_si128(
-			_mm_load_si128((__m128i*)(p+d)),
-			_mm_load_si128((__m128i*)(q+d))
-		);
-		result+=_mm_popcnt_u64(xor.m128i_u64[0]);
-		result+=_mm_popcnt_u64(xor.m128i_u64[1]);
+		// this is probably faster than using _mm_xor_si128().
+		result+=_mm_popcnt_u64((*p64++)^(*q64++));
+		result+=_mm_popcnt_u64((*p64++)^(*q64++));
 	}
 	return int(result);
 }
