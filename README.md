@@ -5,22 +5,32 @@ This code provides a benchmark for hardware-accelerated distance computation suc
 
 ###Results of our benchmark
 
-#### Test environment
-* **CPU**: Intel Core i5 M560 @ 2.67GHz x2 (Nehalem)
-* **Memory**: 8GB
+#### Benchmark. 1
+
+**Test environment**
+* **CPU**: Intel Core i7 4770 CPU @ 3.40GHz x4 (Haswell)
+* **Memory**: 8.0 GB
+* **IDE**: Visual Studio 2012 Professioal
+* **Platform**: x64 
+* **Option**: /O2
+
+#### (D=128 and N=4M)
+* **L2 (Euclidean)**: 313ms (w/o SSE),  52ms (w/ SSE)
+* **L1 (Manhattan)**: 291ms (w/o SSE),  33ms (w/ SSE)
+* **Hamming 32bits**: 275ms (w/o SSE),  62ms (w/ SSE)
+* **Hamming 64bits**: 192ms (w/o SSE),  43ms (w/ SSE)
+
+#### Benchmark. 2
+
+**Test environment**
+* **CPU**: Intel Core i5 560M @ 2.67GHz x2 (Arrandale)
+* **Memory**: 8.0 GB
 * **IDE**: Visual Studio 2010 Professioal
 * **Platform**: x64 
 * **Option**: /O2
 
-#### (D=128 and N=4M w/o SSE)
-* **L2 (Euclidean)**: 461ms
-* **L1 (Manhattan)**: 576ms
-* **Hamming 32bits**: 708ms
-* **Hamming 64bits**: 461ms
-
-#### (D=128 and N=4M w/ SSE)
-* **L2 (Euclidean)**: 127ms
-* **L1 (Manhattan)**:  90ms
-* **Hamming 32bits**: 164ms
-* **Hamming 64bits**: 108ms
-
+**Result (D=128 and N=4M)**
+* **L2 (Euclidean)**: 461ms (w/o SSE), 127ms (w/ SSE)
+* **L1 (Manhattan)**: 576ms (w/o SSE),  90ms (w/ SSE)
+* **Hamming 32bits**: 708ms (w/o SSE), 164ms (w/ SSE)
+* **Hamming 64bits**: 461ms (w/o SSE), 108ms (w/ SSE)
