@@ -177,7 +177,7 @@ inline int dist_hamming32(unsigned char* p,unsigned char* q)
 }
 
 #if USE_SSE
-inline int dist_hamming32_sse(unsigned char* p,unsigned char* q)
+inline int dist_hamming32_simd(unsigned char* p,unsigned char* q)
 {
 	int result=0;
 	unsigned int* p32=reinterpret_cast<unsigned int*>(p);
@@ -207,6 +207,7 @@ inline int dist_hamming64(unsigned char* p,unsigned char* q)
 	return int(result);
 }
 #if USE_SSE
+#if defined (_M_X64)
 inline int dist_hamming64_simd(unsigned char* p,unsigned char* q)
 {
 	long long result=0;
@@ -215,11 +216,12 @@ inline int dist_hamming64_simd(unsigned char* p,unsigned char* q)
 	for(unsigned d=0;d<D;d+=ALIGN)
 	{
 		// this is probably faster than using _mm_xor_si128().
-		result+ = _mm_popcnt_u64((*p64++)^(*q64++));
-		result+ = _mm_popcnt_u64((*p64++)^(*q64++));
+		result += _mm_popcnt_u64((*p64++)^(*q64++));
+		result += _mm_popcnt_u64((*p64++)^(*q64++));
 	}
 	return int(result);
 }
+#endif
 #else
 inline int dist_hamming64_simd(unsigned char* p,unsigned char* q)
 {
@@ -241,10 +243,10 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	for(unsigned n=0;n<N;++n)
 	{
 		// uncomment one of them as you like!
-//		int d=dist_l2(&dict[n*D],query);
+		int d=dist_l2(&dict[n*D],query);
 //		int d=dist_l1(&dict[n*D],query);
 //		int d=dist_hamming32(&dict[n*D],query);
-		int d=dist_hamming64(&dict[n*D],query);
+//		int d=dist_hamming64(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
@@ -260,10 +262,10 @@ inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
 	for(unsigned n=0;n<N;++n)
 	{
 		// uncomment one of them as you like!
-//		int d=dist_l2_simd(&dict[n*D],query);
+		int d=dist_l2_simd(&dict[n*D],query);
 //		int d=dist_l1_simd(&dict[n*D],query);
 //		int d=dist_hamming32_simd(&dict[n*D],query);
-		int d=dist_hamming64_simd(&dict[n*D],query);
+//		int d=dist_hamming64_simd(&dict[n*D],query);
 		if(best_d<d)
 			continue;
 		best_n=n;
