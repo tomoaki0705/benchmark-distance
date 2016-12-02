@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <limits>
 #include <random>
+#include "platformMalloc.h"
 
 #if defined _M_X64 || (defined _M_IX86_FP && _M_IX86_FP >= 2)
 #include <intrin.h>
@@ -283,10 +284,10 @@ int main()
 	printf("-----------------------------------------\n");
 
 	std::mt19937 rng;
-	std::uniform_real_distribution<unsigned char> dist(0,255);
+	std::uniform_real_distribution<float> dist(0.,255.);
 	
-	unsigned char* dict=reinterpret_cast<unsigned char*>(_aligned_malloc(N*D,ALIGN));
-	unsigned char* query=reinterpret_cast<unsigned char*>(_aligned_malloc(D,ALIGN));
+	unsigned char* dict=reinterpret_cast<unsigned char*>(alignedMalloc(N*D,ALIGN));
+	unsigned char* query=reinterpret_cast<unsigned char*>(alignedMalloc(D,ALIGN));
 	
 	// generate dictionary and query vectors randomly
 	printf("[vector generation]\n");
@@ -295,11 +296,11 @@ int main()
 		if((n+1)%1024==0)
 			printf("  Progress... (%5dk / %5dk)\r",(n+1)/1024,N/1024);
 		for(unsigned d=0;d<D;++d)
-			dict[n*D+d]=dist(rng);
+			dict[n*D+d]=(unsigned char)dist(rng);
 	}
-	printf("\n");
-	for(unsigned d=0;d<D;++d)
-		query[d]=dist(rng);
+//	printf("\n");
+//	for(unsigned d=0;d<D;++d)
+//		query[d]=(unsigned char)dist(rng);
 
 	//// print vectors
 	//printf("[dictionary vectors]\n");
@@ -323,7 +324,7 @@ int main()
 	printf("  Nearest neighbor:  %d (distance=%d)\n",resultB.second,resultB.first);
 	printf("  Search time:  %6.0f [ms]\n",timeB);
 
-	_aligned_free(dict);
-	_aligned_free(query);
+	alignedFree(dict);
+	alignedFree(query);
 	return 0;
 }
