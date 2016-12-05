@@ -256,7 +256,7 @@ inline std::pair<int,int> search(unsigned char* dict,unsigned char* query)
 	return std::make_pair(best_d,best_n);
 }
 
-inline std::pair<int,int> search_sse(unsigned char* dict,unsigned char* query)
+inline std::pair<int,int> search_simd(unsigned char* dict,unsigned char* query)
 {
 	int best_n=-1;
 	int best_d=std::numeric_limits<int>::max();
@@ -308,7 +308,7 @@ int main()
 	//printf("[query vectors]\n");
 	//print_vectors(1,query);
 
-	printf("[full nearest neighbor search w/o SSE]\n");
+	printf("[full nearest neighbor search w/o SIMD]\n");
 	clock_t tickA0=clock();
 	std::pair<int,int> resultA=search(dict,query);
 	clock_t tickA1=clock();
@@ -316,9 +316,9 @@ int main()
 	printf("  Nearest neighbor:  %d (distance=%d)\n",resultA.second,resultA.first);
 	printf("  Search time:  %6.0f [ms]\n",timeA);
 	
-	printf("[full nearest neighbor search w/ SSE]\n");
+	printf("[full nearest neighbor search w/ SIMD]\n");
 	clock_t tickB0=clock();
-	std::pair<int,int> resultB=search_sse(dict,query);
+	std::pair<int,int> resultB=search_simd(dict,query);
 	clock_t tickB1=clock();
 	double timeB=double(tickB1-tickB0)*1000.0/CLOCKS_PER_SEC;
 	printf("  Nearest neighbor:  %d (distance=%d)\n",resultB.second,resultB.first);
